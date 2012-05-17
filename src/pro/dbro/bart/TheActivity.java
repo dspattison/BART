@@ -36,6 +36,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.location.Location;
+import android.location.LocationManager;
+import android.nfc.Tag;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -123,6 +126,100 @@ public class TheActivity extends Activity {
 		"Powell St. (SF)","Richmond","Rockridge (Oakland)","San Bruno","San Francisco Int'l Airport SFO",
 		"San Leandro","South Hayward","South San Francisco","Union City","Walnut Creek","West Oakland"
     };
+	
+	static final double[] LATITUDES = new double[] {
+		37.803664,
+		37.765062,
+		37.80787,
+		37.752254,
+		37.853024,
+		37.72198087,
+		37.697185,
+		37.690754,
+		37.779528,
+		37.754006,
+		37.684638,
+		37.973737,
+		37.70612055,
+		37.869867,
+		37.701695,
+		37.925655,
+		37.9030588,
+		37.792976,
+		37.557355,
+		37.774963,
+		37.732921,
+		37.670399,
+		37.893394,
+		37.797484,
+		37.828415,
+		37.599787,
+		37.789256,
+		37.87404,
+		38.003275,
+		37.87836087,
+		38.018914,
+		37.928403,
+		37.784991,
+		37.936887,
+		37.844601,
+		37.637753,
+		37.6159,
+		37.72261921,
+		37.63479954,
+		37.664174,
+		37.591208,
+		37.905628,
+		37.699759,
+		37.80467476,
+	};
+	
+	static final double[] LONGITUDES = new double[] {
+		-122.271604,
+		-122.419694,
+		-122.269029,
+		-122.418466,
+		-122.26978,
+		-122.4474142,
+		-122.126871,
+		-122.075567,
+		-122.413756,
+		-122.197273,
+		-122.466233,
+		-122.029095,
+		-122.4690807,
+		-122.268045,
+		-121.900367,
+		-122.317269,
+		-122.2992715,
+		-122.396742,
+		-121.9764,
+		-122.224274,
+		-122.434092,
+		-122.087967,
+		-122.123801,
+		-122.265609,
+		-122.267227,
+		-122.38666,
+		-122.401407,
+		-122.283451,
+		-122.024597,
+		-122.1837911,
+		-121.945154,
+		-122.056013,
+		-122.406857,
+		-122.353165,
+		-122.251793,
+		-122.416038,
+		-122.392534,
+		-122.1613112,
+		-122.0575506,
+		-122.444116,
+		-122.017867,
+		-122.067423,
+		-121.928099,
+		-122.2945822
+	};
 	
 	//Convert plain text to BART API station string representations
 	static final HashMap<String, String> STATION_MAP = new HashMap<String, String>() {
@@ -215,7 +312,7 @@ public class TheActivity extends Activity {
                 android.R.layout.simple_dropdown_item_1line, STATIONS);
         originTextView = (AutoCompleteTextView)
                 findViewById(R.id.originTv);
-        
+         
         fareTv = (TextView) findViewById(R.id.fareTv);
         stopServiceTv = (TextView) findViewById(R.id.stopServiceTv);
 
@@ -236,6 +333,46 @@ public class TheActivity extends Activity {
     		destinationTextView.setText(destination);
     		validateInputAndDoRequest();
         }
+        
+        //set to nearest station (if any)
+        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+		Location location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+		
+		//if no gps location, then try network
+		if (location == null) {
+			Log.i("ClosetStation", "Trying network provider");
+			location = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+		}
+		//make sure we got at least one
+		if (location != null) {
+			double longitude = location.getLongitude();
+			double latitude = location.getLatitude();
+			
+			Log.i("ClosetStation", "Current position is: long:"+ longitude + " lat: " + latitude);
+			
+			int closetStationId = 0;
+			String closetStation = STATIONS[closetStationId];
+			double currentDistance = 100000000;//very far away
+			for (int i = 0; i < LONGITUDES.length; i++) {
+				//compute distance
+				//this doesn't understand that the earth is round ()
+				double stationDistance = Math.sqrt(
+					Math.pow(longitude - LONGITUDES[i], 2) + 
+					Math.pow(latitude - LATITUDES[i], 2));
+				if (currentDistance > stationDistance) {
+					currentDistance = stationDistance;
+					closetStationId = i;
+					closetStation = STATIONS[closetStationId];
+					Log.i("ClosetStation", closetStation);
+				}
+			}
+			Log.i("ClosetStation.final", closetStation);
+			
+	        originTextView.setText(closetStation);
+	        validateInputAndDoRequest();
+		} else {
+			Log.i("ClosetStation", "no location info provided :(");
+		}
        
         ImageView map = (ImageView) findViewById(R.id.map);
         map.setOnClickListener(new OnClickListener(){
